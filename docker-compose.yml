@@ -1,0 +1,80 @@
+version: '2'
+
+services:
+  web:
+    build:
+      command: >
+        sh -c "gunicorn adacorp.wsgi:application --bind 0.0.0.0:8000"configs:
+      volumes:
+        - .:usr/src/app/
+        - static_volume:/usr/src/app/static
+        - media_volume:/usr/src/app/media_volume
+      ports:
+        - "8000:8000"
+      depends_on:
+        - db 
+        - migration 
+      env_file:
+        - .env
+      enviroment:
+        - VIRTUAL_HOST = 
+        - LETSENCRYPT_HOST = 
+  
+  db: 
+    image: postgres
+    restart: always
+    ports: 
+      - "5432:5432"
+    enviroment:
+      POSTGRES_DB: ubuntu
+      POSTGRES_USER: ububtu 
+      POSTGRES_PASSWORD: 1
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    
+  migration:
+    build: . 
+    command: >
+      sh -c 'python3 manage.py makemigrations &&
+              python3 manage.py migrate' configs:
+    volumes:
+      - .:/usr/src/app/
+    depends_on:
+      - db 
+
+  nginx:
+    build: 
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - static_volume:/usr/src/app/static
+      - media_volume:/usr/src/app/media
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/temp/docker/sock:ro
+    depends_on:
+      - web
+      
+  acme_companion:
+    image: nginxproxy/acme-companion:2.2
+    container_name: acme_companion
+    volumes_form:
+      - nginx
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock.ro
+      - acme:/etc/acme.sh
+  
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  certs:
+  vhost:
+  html:
+  acme:
+
+
